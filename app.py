@@ -1,6 +1,8 @@
 from flask import Flask, request
 from flask_cors import CORS
 import json
+import requests
+from bs4 import BeautifulSoup
 
 # Loading environment variables
 import os
@@ -56,3 +58,17 @@ def retrieve_info():
     results = chain({"input_documents": search_results, "question": query}, return_only_outputs=True)
     
     return {"results":results["output_text"]}
+
+@app.route('/scrape', methods=['POST'])
+def scrape_site():
+    url = request.json.get("url")
+
+    response = requests.get(url)
+
+    soup = BeautifulSoup(response.content, 'html.parser')
+    links = soup.find_all('p')
+    context = ''
+    for link in links:
+        context += link.text + "\n"
+    
+    return {"content":context}
