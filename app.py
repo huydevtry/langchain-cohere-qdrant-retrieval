@@ -3,6 +3,9 @@ from flask_cors import CORS
 import json
 import requests
 from bs4 import BeautifulSoup
+import re
+import os
+import pprint
 
 # Loading environment variables
 import os
@@ -26,6 +29,7 @@ def hello_world():
 from langchain.embeddings import CohereEmbeddings
 from langchain.document_loaders import PyPDFLoader
 from langchain.vectorstores import Qdrant
+
 
 @app.route('/embed', methods=['POST'])
 def embed_pdf():
@@ -69,6 +73,35 @@ def scrape_site():
     links = soup.find_all('p')
     context = ''
     for link in links:
-        context += link.text + "\n"
+        context += link.text + " "
+    clean_context = context.replace('\n', '').replace('\r', '').strip()
+
+    return {"content":clean_context}
+
+from langchain.agents import initialize_agent
+from langchain.llms import OpenAI
+from langchain.utilities import GoogleSerperAPIWrapper
+from langchain.agents import initialize_agent, Tool
+from langchain.agents import AgentType
+
+@app.route('/serper', methods=['POST'])
+def google_serper():
+    # os.environ['OPENAI_API_KEY'] = "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"
+    # os.environ["SERPER_API_KEY"] = "a9df4278dd394022aa9be10785eb6fd30825615d"
+
+    query = request.json.get("query")
+    llm = OpenAI(temperature=0)
+    search = GoogleSerperAPIWrapper()
+    tools = [
+        Tool(
+            name="Intermediate Answer",
+            func=search.run,
+            description="useful for when you need to ask with search"
+        )
+    ]
+
+    self_ask_with_search = initialize_agent(tools, llm, agent=AgentType.SELF_ASK_WITH_SEARCH, verbose=True)
+    response = self_ask_with_search.run(query)
     
-    return {"content":context}
+
+    return {"content":response}
